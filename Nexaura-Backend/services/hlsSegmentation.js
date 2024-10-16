@@ -1,7 +1,12 @@
-function generateHLS(inputPath, outputDir, resolution) {
+import ffmpeg from 'fluent-ffmpeg';
+import path from 'path';
+import fs from 'fs';
+
+function generateHLS(inputPath, outputDir, resolution, uuid) {
+    console.log("This is HLS Function")
     return new Promise((resolve, reject) => {
-      const outputPath = path.join(outputDir, resolution);
-      const playlistName = `${resolution}.m3u8`;
+      const outputPath = path.join(outputDir, resolution, uuid);
+      const playlistName = `${uuid}.m3u8`;
   
       // Ensure output directory exists
       fs.mkdirSync(outputPath, { recursive: true });
@@ -15,6 +20,7 @@ function generateHLS(inputPath, outputDir, resolution) {
           '-hls_list_size 0',
           '-f hls'
         ])
+        .audioCodec('aac')
         .output(path.join(outputPath, playlistName))
         .on('end', () => {
           console.log(`HLS generated for ${resolution}`);
