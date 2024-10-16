@@ -63,10 +63,12 @@ router.get('/metadata', async (req, res) => {
   }
 });
 
-// Route to search videos by title or tags with word matching and priority sorting
 router.get('/search', async (req, res) => {
   const query = req.query.query || ''; // Get the search query from the request
   const words = query.split(/\s+/).filter(Boolean); // Split query into words and filter out empty ones
+  const page = parseInt(req.query.page) || 1; // Current page number
+  const limit = 10; // Number of items per page
+  const skip = (page - 1) * limit; // Calculate how many items to skip
 
   try {
     // Use regex to perform a case-insensitive search on both title and tags
@@ -75,46 +77,49 @@ router.get('/search', async (req, res) => {
         { title: { $regex: query, $options: 'i' } }, // Case-insensitive title search
         { tags: { $in: words.map(word => new RegExp(word, 'i')) } } // Match words in tags
       ]
-    });
+    })
+    .skip(skip) // Apply pagination
+    .limit(limit); // Limit the results
 
     if (videos.length === 0) {
       return res.status(404).json({ message: 'No videos found' });
     }
 
-    // Sort videos based on the number of matching words in the title and tags
-    const prioritizedVideos = videos.map(video => {
-      const titleMatches = words.filter(word =>
-        new RegExp(word, 'i').test(video.title)
-      ).length;
-
-      const tagMatches = video.tags
-        ? words.filter(word => video.tags.some(tag =>
-            new RegExp(word, 'i').test(tag)
-          )).length
-        : 0;
-
-      return {
-        video,
-        score: titleMatches + tagMatches, // Total score based on matches
-      };
+    // Prepare the response in the specified format
+    let list = [];
+    videos.forEach(video => {
+      const uuid = video.videoUrl.replace('.mp4', '');
+      list.push({ 
+        uuid: uuid, 
+        title: video.title, 
+        objectId: video._id  
+      });
     });
 
-    // Sort by score in descending order (higher score = more matches)
-    prioritizedVideos.sort((a, b) => b.score - a.score);
-
-    // Prepare response with the sorted videos
-    const result = prioritizedVideos.map(({ video }) => ({
-      uuid: video.videoUrl.replace('.mp4', ''),
-      title: video.title,
-      objectId: video._id,
-    }));
-
-    res.json(result);
+    console.log("search result : ",list);
+    res.json(list); // Return the list of videos in the specified format
   } catch (err) {
     console.error('Error fetching search results:', err);
     res.status(500).json({ error: 'Failed to fetch search results' });
   }
 });
 
+
+router.patch('/update', async (req, res) => {
+  const updates = req.body;
+  try {
+    const result = await VideoModel.updateOne(
+      { _id: updates.objectId },  
+      { $set: updates }
+    );
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: 'Video not found or no changes made' });
+    }
+    res.status(200).json({ message: 'Update successful' });
+  } catch (error) {
+    console.error('Error updating video:', error);
+    res.status(500).json({ error: 'Failed to update video' });
+  }
+});
 
 export default router;

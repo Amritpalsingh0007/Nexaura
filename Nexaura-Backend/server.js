@@ -10,6 +10,7 @@ const port = 3000;
 async function startServer(){
   await connectToDatabase();
 
+  app.use(express.json())
   app.use('/api/videos', videoRoutes);
   app.use('/api/upload', uploadRoutes);
 

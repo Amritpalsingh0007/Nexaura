@@ -3,6 +3,7 @@ import 'package:better_player/better_player.dart';
 import 'package:nexaura/features/app/common/infinite_video_scroll_view.dart';
 import 'package:nexaura/features/app/model/video_metadata.dart';
 import 'package:nexaura/features/app/services/api_service.dart';
+import 'better_player_manager.dart'; // Import your manager
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -16,14 +17,9 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   BetterPlayerController? _betterPlayerController;
-  int views = 0;
-  int likes = 0;
-  int dislikes = 0;
-  String title = '';
-  String description = '';
-  bool isLiked = false;
-  bool isDisliked = false;
-  bool isLoading = true;
+  int views = 0, likes = 0, dislikes = 0;
+  String title = '', description = '';
+  bool isLiked = false, isDisliked = false, isLoading = true;
   DateTime uploadDate = DateTime.now();
 
   @override
@@ -34,8 +30,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initializePlayer() async {
     try {
+      // Fetch video metadata
       VideoMetadata videoMetadata =
           await ApiService().fetchVideoMetadata(widget.objectId);
+
       setState(() {
         views = videoMetadata.views;
         likes = videoMetadata.likes;
@@ -46,24 +44,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         isLoading = false;
       });
 
-      BetterPlayerDataSource betterPlayerDataSource = BetterPlayerDataSource(
-        BetterPlayerDataSourceType.network,
-        widget.videoUrl,
-      );
+      // Update views when video starts
+      _updateViews();
 
-      _betterPlayerController = BetterPlayerController(
-        const BetterPlayerConfiguration(
-          aspectRatio: 16 / 9,
-          autoPlay: true,
-          controlsConfiguration: BetterPlayerControlsConfiguration(
-            enableFullscreen: true,
-            enableSkips: true,
-            skipBackIcon: Icons.replay_10,
-            skipForwardIcon: Icons.forward_10,
-          ),
-        ),
-        betterPlayerDataSource: betterPlayerDataSource,
-      );
+      // Use BetterPlayerManager to get the controller
+      BetterPlayerController controller =
+          BetterPlayerManager().getPlayerController(widget.videoUrl);
+
+      setState(() {
+        _betterPlayerController = controller;
+      });
     } catch (e) {
       print("Error: $e");
       setState(() {
@@ -72,9 +62,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  Future<void> _updateViews() async {
+    await ApiService().updateData({
+      'objectId': widget.objectId,
+      'views': views + 1,
+    });
+    setState(() {
+      views++;
+    });
+  }
+
+  Future<void> _updateLikesDislikes() async {
+    await ApiService().updateData({
+      'objectId': widget.objectId,
+      'likes': likes,
+      'dislikes': dislikes,
+    });
+  }
+
   @override
   void dispose() {
-    _betterPlayerController?.dispose();
+    BetterPlayerManager().disposePlayer(); // Dispose the controller properly
     super.dispose();
   }
 
@@ -106,31 +114,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
                     // Expandable Title and Description Block
                     ExpansionTile(
-                        title: Text(
-                          title.isNotEmpty ? title : 'Loading...',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      title: Text(
+                        title.isNotEmpty ? title : 'Loading...',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        subtitle: Text(
-                          '$views views • ${_formatDate(uploadDate)}',
-                          style: const TextStyle(color: Colors.grey),
-                        ),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 8.0),
-                            child: Text(
-                              description.isNotEmpty
-                                  ? description
-                                  : 'Loading...',
-                              style: const TextStyle(fontSize: 16),
-                              textAlign: TextAlign.left,
-                            ),
-                          ),
-                        ],
                       ),
+                      subtitle: Text(
+                        '$views views • ${_formatDate(uploadDate)}',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0, vertical: 8.0),
+                          child: Text(
+                            description.isNotEmpty ? description : 'Loading...',
+                            style: const TextStyle(fontSize: 16),
+                            textAlign: TextAlign.left,
+                          ),
+                        ),
+                      ],
+                    ),
 
                     const SizedBox(height: 10),
 
@@ -156,6 +162,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   likes--;
                                 }
                                 isLiked = !isLiked;
+                                _updateLikesDislikes();
                               });
                             },
                           ),
@@ -180,6 +187,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   dislikes--;
                                 }
                                 isDisliked = !isDisliked;
+                                _updateLikesDislikes();
                               });
                             },
                           ),

@@ -41,10 +41,15 @@ class _InfiniteVideoScrollViewState extends State<InfiniteVideoScrollView> {
     });
 
     try {
-      final fetchedVideos = await ApiService().fetchVideos(
-        _page,
-        query: widget.searchQuery, // Pass the search query to API
-      );
+      final List<VideoItem> fetchedVideos;
+      if(widget.searchQuery == null){
+        fetchedVideos = await ApiService().fetchVideos(
+          _page, 
+        );
+
+      } else{
+        fetchedVideos = await ApiService().searchVideos(_page, widget.searchQuery!);
+      }
 
       setState(() {
         _videos.addAll(fetchedVideos);
