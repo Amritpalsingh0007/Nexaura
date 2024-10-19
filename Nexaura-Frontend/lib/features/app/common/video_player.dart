@@ -9,7 +9,8 @@ class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
   final String objectId;
 
-  const VideoPlayerScreen({required this.videoUrl, required this.objectId});
+  const VideoPlayerScreen(
+      {super.key, required this.videoUrl, required this.objectId});
 
   @override
   _VideoPlayerScreenState createState() => _VideoPlayerScreenState();
@@ -28,55 +29,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _initializePlayer();
   }
 
-  Future<void> _initializePlayer() async {
-    try {
-      // Fetch video metadata
-      VideoMetadata videoMetadata =
-          await ApiService().fetchVideoMetadata(widget.objectId);
+Future<void> _initializePlayer() async {
+  try {
+    // Fetch video metadata
+    VideoMetadata videoMetadata =
+        await ApiService().fetchVideoMetadata(widget.objectId);
 
-      setState(() {
-        views = videoMetadata.views;
-        likes = videoMetadata.likes;
-        dislikes = videoMetadata.dislikes;
-        title = videoMetadata.title;
-        description = videoMetadata.description;
-        uploadDate = videoMetadata.uploadDate;
-        isLoading = false;
-      });
+    // Fetch like/dislike status
+    final status = await ApiService().fetchVideoStatus(widget.objectId);
+    debugPrint("STATUS here! : "+ status['isLiked'].toString() + status['isDisliked'].toString());
 
-      // Update views when video starts
-      _updateViews();
+    setState(() {
+      views = videoMetadata.views;
+      likes = videoMetadata.likes;
+      dislikes = videoMetadata.dislikes;
+      title = videoMetadata.title;
+      description = videoMetadata.description;
+      uploadDate = videoMetadata.uploadDate;
+      isLiked = status['isLiked'];
+      isDisliked = status['isDisliked'];
+      isLoading = false;
+    });
 
-      // Use BetterPlayerManager to get the controller
-      BetterPlayerController controller =
-          BetterPlayerManager().getPlayerController(widget.videoUrl);
+    // Update views when video starts
+    _updateViews();
+    _addToHistoryPlaylist();
 
-      setState(() {
-        _betterPlayerController = controller;
-      });
-    } catch (e) {
-      print("Error: $e");
-      setState(() {
-        isLoading = false;
-      });
-    }
+    // Get the controller from BetterPlayerManager
+    BetterPlayerController controller =
+        BetterPlayerManager().getPlayerController(widget.videoUrl);
+
+    setState(() {
+      _betterPlayerController = controller;
+    });
+  } catch (e) {
+    debugPrint("Error: $e");
+    setState(() {
+      isLoading = false;
+    });
   }
+}
+
 
   Future<void> _updateViews() async {
-    await ApiService().updateData({
-      'objectId': widget.objectId,
-      'views': views + 1,
-    });
+    await ApiService().incrementViews(widget.objectId);
     setState(() {
       views++;
-    });
-  }
-
-  Future<void> _updateLikesDislikes() async {
-    await ApiService().updateData({
-      'objectId': widget.objectId,
-      'likes': likes,
-      'dislikes': dislikes,
     });
   }
 
@@ -147,10 +145,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         children: [
                           IconButton(
                             icon: Icon(
-                              isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                              isLiked
+                                  ? Icons.thumb_up
+                                  : Icons.thumb_up_outlined,
                               color: isLiked ? Colors.blue : Colors.grey,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
+                              try {
+                                if (!isLiked) {
+                                  await ApiService()
+                                      .incrementLikes(widget.objectId);
+                                  if (isDisliked) {
+                                    await ApiService()
+                                        .decrementDislikes(widget.objectId);
+                                  }
+                                } else {
+                                  await ApiService()
+                                      .decrementLikes(widget.objectId);
+                                }
+                                await ApiService().addToLike(widget.objectId);
                               setState(() {
                                 if (!isLiked) {
                                   likes++;
@@ -162,8 +175,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   likes--;
                                 }
                                 isLiked = !isLiked;
-                                _updateLikesDislikes();
                               });
+                              } catch (e) {
+                                debugPrint('Error updating like status: $e');
+                              }
                             },
                           ),
                           Text('$likes', style: const TextStyle(fontSize: 16)),
@@ -175,7 +190,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   : Icons.thumb_down_outlined,
                               color: isDisliked ? Colors.red : Colors.grey,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
+                              try {
+                                if (!isDisliked) {
+                                  await ApiService()
+                                      .incrementDislikes(widget.objectId);
+                                  if (isLiked) {
+                                    await ApiService()
+                                        .decrementLikes(widget.objectId);
+                                  }
+                                } else {
+                                  await ApiService()
+                                      .decrementDislikes(widget.objectId);
+                                }
+                                await ApiService().addToDislike(widget.objectId);
                               setState(() {
                                 if (!isDisliked) {
                                   dislikes++;
@@ -187,8 +215,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   dislikes--;
                                 }
                                 isDisliked = !isDisliked;
-                                _updateLikesDislikes();
                               });
+
+                              } catch (e) {
+                                print('Error updating dislike status: $e');
+                              }
                             },
                           ),
                           Text('$dislikes',
@@ -235,6 +266,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       return '${(difference / 30).floor()} months ago';
     } else {
       return '${(difference / 365).floor()} years ago';
+    }
+  }
+  
+  Future<void> _addToHistoryPlaylist() async{
+    if(await ApiService().addToHistory(widget.objectId)){
+      debugPrint("Video added to the history!");
+    }
+    else{
+      debugPrint("Video not added to the history!");
     }
   }
 }

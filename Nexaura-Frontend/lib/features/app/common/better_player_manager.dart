@@ -46,7 +46,6 @@ class BetterPlayerManager {
   }
 
   void _disposeCurrentController() {
-    print("\n\n\n\n\n\n\n********   Controller is being dispose. : " + (_controller != null).toString());
     _controller?.dispose();
     _controller = null;
   }

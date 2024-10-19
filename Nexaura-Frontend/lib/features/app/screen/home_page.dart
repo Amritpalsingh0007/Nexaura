@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nexaura/features/app/screen/history_page.dart';
+import 'package:nexaura/features/app/screen/like_page.dart';
 import 'package:nexaura/features/app/screen/result_view.dart';
 import 'package:nexaura/features/app/screen/upload_video.dart';
 import 'package:nexaura/features/app/common/infinite_video_scroll_view.dart';
@@ -73,25 +75,65 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           const Expanded(
-            flex: 9,
+            flex: 12,
             child: InfiniteVideoScrollView(),
           ),
           Expanded(
-            flex: 1,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const VideoUploadScreen(),
+              flex: 1,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment
+                    .spaceEvenly, 
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LikePage(),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.favorite, 
+                      size: 20,
+                      color: Colors.white,
+                    ),
                   ),
-                );
-              },
-              child: const Text("Upload"),
-            ),
-          ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const VideoUploadScreen(),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.add, // Plus icon
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HistoryPage(),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.history, // History icon
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              )),
         ],
       ),
     );

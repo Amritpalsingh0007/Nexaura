@@ -3,9 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
-import 'package:better_player/better_player.dart'; // Import Better Player
+import 'package:better_player/better_player.dart';
+import 'package:nexaura/features/app/screen/home_page.dart';
 import 'package:nexaura/features/app/services/api_service.dart';
-import 'package:path/path.dart'; // for handling file paths
+import 'package:path/path.dart' as path; // Rename import
 
 class VideoUploadScreen extends StatefulWidget {
   const VideoUploadScreen({super.key});
@@ -16,7 +17,7 @@ class VideoUploadScreen extends StatefulWidget {
 
 class _VideoUploadScreenState extends State<VideoUploadScreen> {
   File? _video;
-  BetterPlayerController? _betterPlayerController; // Better Player controller
+  BetterPlayerController? _betterPlayerController;
   final ImagePicker _picker = ImagePicker();
   bool _isUploading = false;
   String? _uploadMessage;
@@ -25,16 +26,11 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   final _tagsController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-    Future<String?> _getUserId() async {
+  Future<String?> _getUserId() async {
     User? user = _auth.currentUser;
-    if (user != null) {
-      return user.uid; // Returns the UID of the logged-in user
-    }
-    return null;
+    return user?.uid;
   }
 
-
-  // Function to pick video from gallery or camera
   Future<void> _pickVideo() async {
     final pickedFile = await _picker.pickVideo(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -45,7 +41,6 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     }
   }
 
-  // Initialize Better Player
   void _initializeBetterPlayer() {
     if (_video != null) {
       BetterPlayerDataSource betterPlayerDataSource = BetterPlayerDataSource(
@@ -59,7 +54,6 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     }
   }
 
-  // Dispose Better Player controller
   @override
   void dispose() {
     _betterPlayerController?.dispose();
@@ -69,7 +63,6 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     super.dispose();
   }
 
-  // Function to upload video to the server
   Future<void> _uploadVideo() async {
     if (_video == null) return;
 
@@ -77,26 +70,33 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       _isUploading = true;
       _uploadMessage = null;
     });
+
     String userId = await _getUserId() ?? "";
+
     try {
       String uploadUrl = '${ApiService.apiBaseUrl}api/upload';
 
       FormData formData = FormData.fromMap({
         "video": await MultipartFile.fromFile(
           _video!.path,
-          filename: basename(_video!.path),
+          filename: path.basename(_video!.path), // Use renamed import
         ),
         "title": _titleController.text,
         "description": _descriptionController.text,
         "tags": _tagsController.text.split(','),
-        "uploaderId" : userId
+        "uploaderId": userId,
       });
 
       Dio dio = Dio();
       var response = await dio.post(uploadUrl, data: formData);
-      setState(() {
-        _uploadMessage = 'Upload Successful: ${response.data}';
-      });
+
+      if (response.statusCode == 200) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
+        );
+      }
     } catch (e) {
       setState(() {
         _uploadMessage = 'Upload Failed: $e';
@@ -126,11 +126,12 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                 _betterPlayerController != null
                     ? AspectRatio(
                         aspectRatio: 16 / 9,
-                        child: BetterPlayer(controller: _betterPlayerController!),
+                        child:
+                            BetterPlayer(controller: _betterPlayerController!),
                       )
                     : const CircularProgressIndicator(),
                 const SizedBox(height: 20),
-                Text('Video selected: ${basename(_video!.path)}'),
+                Text('Video selected: ${path.basename(_video!.path)}'),
               ],
               const SizedBox(height: 20),
               TextField(
@@ -145,7 +146,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               const SizedBox(height: 10),
               TextField(
                 controller: _tagsController,
-                decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
+                decoration:
+                    const InputDecoration(labelText: 'Tags (comma separated)'),
               ),
               const SizedBox(height: 20),
               _isUploading

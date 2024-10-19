@@ -6,8 +6,10 @@ import 'package:nexaura/global/common/toast.dart';
 
 class InfiniteVideoScrollView extends StatefulWidget {
   final String? searchQuery; // Optional search query
+  final bool? like;
+  final bool? history;
 
-  const InfiniteVideoScrollView({super.key, this.searchQuery});
+  const InfiniteVideoScrollView({super.key, this.searchQuery, this.like, this.history});
 
   @override
   State<InfiniteVideoScrollView> createState() =>
@@ -42,12 +44,18 @@ class _InfiniteVideoScrollViewState extends State<InfiniteVideoScrollView> {
 
     try {
       final List<VideoItem> fetchedVideos;
-      if(widget.searchQuery == null){
+      if(widget.history == true){
+        fetchedVideos = await ApiService().fetchHistoryVideos(_page);
+      } else if(widget.like == true){
+        fetchedVideos = await ApiService().fetchLikedVideos(_page);
+      }
+       else if(widget.searchQuery == null){
         fetchedVideos = await ApiService().fetchVideos(
           _page, 
         );
 
-      } else{
+      }
+      else{
         fetchedVideos = await ApiService().searchVideos(_page, widget.searchQuery!);
       }
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import VideoModel from '../model/video_model.js'; 
+import userModel from '../model/user_model.js';
 
 const router = express.Router();
 
@@ -64,26 +65,22 @@ router.get('/metadata', async (req, res) => {
 });
 
 router.get('/search', async (req, res) => {
-  const query = req.query.query || ''; // Get the search query from the request
+  const query = req.query.query || ''; 
   const words = query.split(/\s+/).filter(Boolean); // Split query into words and filter out empty ones
-  const page = parseInt(req.query.page) || 1; // Current page number
-  const limit = 10; // Number of items per page
-  const skip = (page - 1) * limit; // Calculate how many items to skip
+  const page = parseInt(req.query.page) || 1; 
+  const limit = 10; 
+  const skip = (page - 1) * limit; 
 
   try {
     // Use regex to perform a case-insensitive search on both title and tags
     const videos = await VideoModel.find({
       $or: [
-        { title: { $regex: query, $options: 'i' } }, // Case-insensitive title search
-        { tags: { $in: words.map(word => new RegExp(word, 'i')) } } // Match words in tags
+        { title: { $regex: query, $options: 'i' } }, 
+        { tags: { $in: words.map(word => new RegExp(word, 'i')) } } 
       ]
     })
-    .skip(skip) // Apply pagination
-    .limit(limit); // Limit the results
-
-    if (videos.length === 0) {
-      return res.status(404).json({ message: 'No videos found' });
-    }
+    .skip(skip)
+    .limit(limit); 
 
     // Prepare the response in the specified format
     let list = [];
@@ -96,7 +93,6 @@ router.get('/search', async (req, res) => {
       });
     });
 
-    console.log("search result : ",list);
     res.json(list); // Return the list of videos in the specified format
   } catch (err) {
     console.error('Error fetching search results:', err);
@@ -105,13 +101,10 @@ router.get('/search', async (req, res) => {
 });
 
 
-router.patch('/update', async (req, res) => {
-  const updates = req.body;
+router.patch('/increment-views', async (req, res) => {
+  const {objectId} = req.body;
   try {
-    const result = await VideoModel.updateOne(
-      { _id: updates.objectId },  
-      { $set: updates }
-    );
+    const result = await VideoModel.findByIdAndUpdate(objectId,{ $inc: {views: 1} });
     if (result.modifiedCount === 0) {
       return res.status(404).json({ message: 'Video not found or no changes made' });
     }
@@ -121,5 +114,83 @@ router.patch('/update', async (req, res) => {
     res.status(500).json({ error: 'Failed to update video' });
   }
 });
+
+// Increment likes
+router.post('/increment-likes', async (req, res) => {
+  console.log("Just got inc like req!");
+  const { objectId } = req.body;
+  try {
+    await VideoModel.findByIdAndUpdate(objectId, { $inc: { likes: 1 } });
+    res.status(200).send({ message: 'Likes incremented' });
+  } catch (error) {
+    console.log("Unable to increment likes : ", error);
+    res.status(500).send({ error: 'Failed to increment likes' });
+  }
+});
+
+// Decrement likes
+router.post('/decrement-likes', async (req, res) => {
+  console.log("Just got dec like req!");
+
+  const { objectId } = req.body;
+  try {
+    await VideoModel.findByIdAndUpdate(objectId, { $inc: { likes: -1 } });
+    res.status(200).send({ message: 'Likes decremented' });
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to decrement likes' });
+  }
+});
+
+// Increment dislikes
+router.post('/increment-dislikes', async (req, res) => {
+  console.log("Just got inc dislike req!");
+
+  const { objectId } = req.body;
+  try {
+    await VideoModel.findByIdAndUpdate(objectId, { $inc: { dislikes: 1 } });
+    res.status(200).send({ message: 'Dislikes incremented' });
+  } catch (error) {
+
+    res.status(500).send({ error: 'Failed to increment dislikes' });
+  }
+});
+
+// Decrement dislikes
+router.post('/decrement-dislikes', async (req, res) => {
+  console.log("Just got dec dislike req!");
+
+  const { objectId } = req.body;
+  try {
+    await VideoModel.findByIdAndUpdate(objectId, { $inc: { dislikes: -1 } });
+    res.status(200).send({ message: 'Dislikes decremented' });
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to decrement dislikes' });
+  }
+});
+
+router.post('/status', async (req, res) => {
+  const { objectId, userId } = req.body;
+
+  if (!objectId || !userId) {
+    return res.status(400).json({ error: 'Invalid request data' });
+  }
+
+  try {
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(200).json({ isLiked: false, isDisliked: false });
+    }
+
+    const isLiked = user.likedvideos.includes(objectId);
+    const isDisliked = user.dislikedvideos.includes(objectId);
+
+    res.status(200).json({ isLiked, isDisliked });
+  } catch (error) {
+    console.error('Error checking like/dislike status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 export default router;
