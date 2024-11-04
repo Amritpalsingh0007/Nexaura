@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 // Your MongoDB connection string
-const uri = "mongodb+srv://amritpalsingh220923:XNhUx.jhi9_GYpf@practicecluster.fzvaf.mongodb.net/nexaura?retryWrites=true&w=majority&appName=PracticeCluster";
+const uri = "ConnectionString will come here!";
 
 let isConnected = false;
 
